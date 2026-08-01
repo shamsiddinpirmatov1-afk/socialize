@@ -11,6 +11,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 from datetime import datetime
 import shutil
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import database as db
 from social_poster_multiuser import publish_for_user
@@ -25,6 +27,22 @@ os.makedirs("downloads/temp", exist_ok=True)
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+# ---------- ОБХОД ДЛЯ RENDER (чтобы не закрывал бота) ----------
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+
+def run_health_server():
+    server = HTTPServer(('0.0.0.0', 10000), HealthCheckHandler)
+    server.serve_forever()
+
+# Запускаем веб-сервер в фоновом потоке
+thread = threading.Thread(target=run_health_server, daemon=True)
+thread.start()
+print("🌐 Health check сервер запущен на порту 10000")
 
 # ---------- СОСТОЯНИЯ ----------
 class AddAccountStates(StatesGroup):
@@ -526,6 +544,7 @@ async def main():
     print("📤 Каждый пользователь управляет своими аккаунтами")
     print("🗑️ Файлы автоматически удаляются после публикации")
     print("📂 Поддерживаются: VK, Instagram, Telegram, Facebook, TikTok")
+    print("🌐 Health check: http://0.0.0.0:10000")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
